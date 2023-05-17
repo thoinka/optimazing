@@ -185,6 +185,8 @@ class OptimizableFunction:
             loss = _losses[loss.lower()]
 
         free_parameters = [p for p in self._parameters if p not in self._freeze_dict]
+        if len(free_parameters) == 0:
+            raise ValueError("Attempted to fit, but no free parameters left!")
 
         def _optimization_function(p):
             params = {key: value for key, value in zip(free_parameters, p)}
