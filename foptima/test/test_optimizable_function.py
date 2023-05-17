@@ -1,8 +1,7 @@
 import numpy as np
-from foptima import optimizable, OptimizableFunction
+from foptima import OptimizableFunction
 import pytest
 from scipy.optimize import minimize
-from functools import partial
 
 
 @pytest.fixture
@@ -68,15 +67,21 @@ def test_frozen_fit(data, a_freeze, b_freeze):
     x, y = data
     optfun = OptimizableFunction(linear)
     frozen = {}
-    if a_freeze != None:
+    if a_freeze is not None:
         frozen.update(a=a_freeze)
-    if b_freeze != None:
+    if b_freeze is not None:
         frozen.update(b=b_freeze)
     result = optfun.freeze(**frozen).fit(x, y)
     if a_freeze is None:
-        func = lambda p: np.mean((y - p * x - b_freeze) ** 2)
-    if b_freeze is None:
-        func = lambda p: np.mean((y - a_freeze * x - p) ** 2)
+
+        def func(p):
+            return np.mean((y - p * x - b_freeze) ** 2)
+
+    elif b_freeze is None:
+
+        def func(p):
+            return np.mean((y - a_freeze * x - p) ** 2)
+
     exp = minimize(func, x0=[1.0])
     if a_freeze is None:
         np.testing.assert_almost_equal(result.a.value, exp.x[0], decimal=7)
