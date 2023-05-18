@@ -7,6 +7,7 @@ from .losses import _losses
 
 
 def optimizable(function):
+    """Decorator that turns any function into an optimizable function."""
     return OptimizableFunction(function)
 
 
@@ -38,6 +39,7 @@ class OptimizableFunction:
         self._arguments = argspecs.args
         self._parameters = argspecs.kwonlyargs
         self._name = function.__name__
+        self.__doc__ = self._function.__doc__
 
     def _check_param_and_arg_names(self, params, args):
         for a in args:
