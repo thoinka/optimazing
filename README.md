@@ -1,5 +1,17 @@
 # foptima
 
+## Install
+
+Clone this repository and install it with pip:
+
+```bash
+git clone https://github.com/thoinka/foptima.git
+cd foptima
+pip install .
+```
+
+## Usage
+
 foptima is designed as a simple wrapper around `scipy.optimize.minimize` to
 make it easier to use for common optimization tasks. The main entry point is the `optimizable`-decorator, which takes a function and returns it as an `OptimizableFunction`-object. All keyword-only arguments will be treated as optimizable parameters. Here's a very basic example:
 
@@ -54,3 +66,11 @@ or with bounds:
 ... result
  <OptimizationResult linear(x; m=1.0±0.0, b=0.0±0.0)>
 ```
+
+## Caveats
+
+Being a wrapper around `scipy.optimize.minimize`, foptima creates quite a bit of
+overhead. If you're optimizing a function that is very fast to evaluate, you
+might be better off using `scipy.optimize.minimize` directly. Without any promises,
+foptima will run something like 10% slower than `scipy.optimize.minimize`. Whether this
+is relevant for your use case is up to you to decide.
