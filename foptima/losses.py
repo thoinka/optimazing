@@ -16,7 +16,6 @@ def poisson(y_true, y_est, weights):
     return np.mean(weights * (y_est - y_true * np.log(y_est + EPSILON)))
 
 
-
 _losses = {
     "chi_squared": chi_squared,
     "chi2": chi_squared,

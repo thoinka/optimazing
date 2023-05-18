@@ -1,8 +1,9 @@
 import numpy as np
 from foptima import OptimizationResult
 
+
 def linear(x, *, a, b):
-        return a * x + b
+    return a * x + b
 
 
 def test_optimization_result_callable():
@@ -13,6 +14,7 @@ def test_optimization_result_callable():
     assert result.a.uncertainty == 0.1
     assert result.b.value == 1.0
     assert result.b.uncertainty == 0.1
+
 
 def test_optimization_result_repr():
     result = OptimizationResult(linear, {"a": 1.0, "b": 1.0}, {"a": 0.1, "b": 0.1})
