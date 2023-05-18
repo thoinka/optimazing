@@ -8,6 +8,30 @@ from .losses import _losses
 
 def optimizable(function):
     """Decorator that turns any function into an optimizable function."""
+    argspecs = getfullargspec(function)
+    num_args = len(argspecs.args)
+    num_params = len(argspecs.kwonlyargs)
+
+    if num_args == 0:
+        raise SyntaxError(
+            "Function is not a valid optimizable function\n"
+            f"Name: {function.__name__}\n"
+            f"Arguments: {argspecs.args}\n"
+            f"Parameters: {argspecs.kwonlyargs}\n"
+            "No arguments found! Define your function so that it contains at least one "
+            "positional argument: def function(arg1, arg2, ..., *, param1, param2, ...)"
+        )
+    if num_params == 0:
+        raise SyntaxError(
+            "Function is not a valid optimizable function\n"
+            f"Name: {function.__name__}\n"
+            f"Arguments: {argspecs.args}\n"
+            f"Parameters: {argspecs.kwonlyargs}\n"
+            "No parameters found! Define your function so that it contains at least "
+            "one positional argument: def function(arg1, arg2, ..., *, param1, param2,"
+            " ...)"
+        )
+
     return OptimizableFunction(function)
 
 
