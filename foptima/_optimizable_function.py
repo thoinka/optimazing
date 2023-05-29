@@ -299,15 +299,16 @@ class OptimizableFunction:
                     f"Weights {weights} not found in DataFrame that was passed."
                 )
             weights = args_or_df[weights]
-        else:
-            weights = weights or np.ones(len(target))
+        elif weights is None:
+            weights = np.ones(len(target))
 
         if isinstance(sigma, str):
             if sigma not in args_or_df.columns:
                 raise KeyError(f"Sigma {sigma} not found in DataFrame that was passed.")
             sigma = args_or_df[sigma]
-        else:
-            sigma = sigma or np.ones(len(target))
+        elif sigma is None:
+            sigma = np.ones(len(target))
+
         return target, weights, sigma
 
     def __repr__(self):

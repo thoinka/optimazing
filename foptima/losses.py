@@ -47,10 +47,11 @@ def loss(func: Optional[Callable] = None, *, register: Optional[bool] = False):
             def __init__(self, **kwargs):
                 super().__init__(func.__name__, **kwargs)
 
-            def function(self, y_true, y_est, weights, sigma):
-                return func(y_true, y_est, weights, sigma)
+            def function(self, y_true, y_est, weights, sigma, **kwargs):
+                return func(y_true, y_est, weights, sigma, **kwargs)
 
-        _loss = Loss()
+        defaults = argspecs.kwonlydefaults or {}
+        _loss = Loss(**defaults)
         if register:
             _losses[_loss.name] = _loss
         return _loss
@@ -78,7 +79,8 @@ class BaseLoss(ABC):
         return self.function(y_true, y_est, weights, sigma, **self.params)
 
     def __repr__(self):
-        return f"<loss {self.name}(y_true, y_est, weights, sigma)>"
+        params_repr = "; " + ", ".join([f"{p}={v}" for p, v in self.params.items()])
+        return f"<loss {self.name}(y_true, y_est, weights, sigma{params_repr})>"
 
 
 @loss(register=True)
