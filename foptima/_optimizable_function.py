@@ -162,8 +162,9 @@ class OptimizableFunction:
         self,
         args: Union[Iterable[Iterable[float]], Iterable[float]],
         y: Iterable[float],
-        loss: Union[str, Callable] = "chi2",
+        loss: Union[str, Callable] = "chi_squared",
         w: Optional[Iterable[float]] = None,
+        sigma: Optional[Iterable[float]] = None,
         options: Dict[str, Any] = None,
         **kwargs,
     ) -> OptimizationResult:
@@ -176,8 +177,10 @@ class OptimizableFunction:
             iterable over those.
         y: iterable(float)
             Target values.
-        w: iterable(float)
+        w: iterable(float), optional
             Weights.
+        sigma: iterable(float), optional
+            Uncertainties.
         loss: string or callable
             Loss function. If string, has to be one of:
             * "mse"
@@ -206,6 +209,7 @@ class OptimizableFunction:
             args = args[None]
 
         w = w or np.ones(len(y))
+        sigma = sigma or np.ones(len(y))
 
         if isinstance(loss, str):
             loss = _losses[loss.lower()]
@@ -217,7 +221,7 @@ class OptimizableFunction:
         def _optimization_function(p):
             params = {key: value for key, value in zip(free_parameters, p)}
             params.update(self._freeze_dict)
-            return loss(y, self._function(*args, **params), w)
+            return loss(y, self._function(*args, **params), w, sigma)
 
         opt_config = {
             "x0": [kwargs.get(p, 1.0) for p in free_parameters],
@@ -236,7 +240,7 @@ class OptimizableFunction:
         else:
             uncertainties = {p: None for p in free_parameters}
         uncertainties.update({p: None for p in self._freeze_dict})
-        return OptimizationResult(self._function, values, uncertainties)
+        return OptimizationResult(self._function, values, result.fun, uncertainties)
 
     def __repr__(self):
         args = ", ".join(self._arguments)

@@ -13,7 +13,13 @@ pip install .
 ## Usage
 
 foptima is designed as a simple wrapper around `scipy.optimize.minimize` to
-make it easier to use for common optimization tasks. The main entry point is the `optimizable`-decorator, which takes a function and returns it as an `OptimizableFunction`-object. All keyword-only arguments will be treated as optimizable parameters. Here's a very basic example:
+make it easier to use for common optimization tasks. The main entry point are the
+`optimizable` and `loss` decorators, which take a function and returns it as an
+`OptimizableFunction` or `BaseLoss` object respectively.
+
+### `optimizable` Decorator
+
+Here's an example of how to use `optimizable`:
 
 ```python
 >>> from foptima import optimizable
@@ -66,10 +72,68 @@ or with bounds:
 ... result
  <OptimizationResult linear(x; m=1.0±0.0, b=0.0±0.0)>
 ```
+## `loss` Decorator
 
+In the examples above, no loss was specified; this translates into the default loss,
+which is a chi squared loss (or, if used without weights, a mean squared error loss).
+You are able to select the loss function to use with the `loss`-keyword in the `fit`
+method:
+
+```python
+>>> linear.fit([1, 2, 3, 4], [2, 4, 6, 5], a=1.0, b=2.0, loss="laplace")
+```
+There's a small set of pre-registered loss functions that foptima is shipped with that
+you can select with a simple string like above, which can be seen when you import
+`foptima.losses`:
+
+```python
+>>> from foptima import losses
+>>> losses
+ chi_squared: <loss chi_squared(y_true, y_est, weights, sigma)>
+ laplace: <loss laplace(y_true, y_est, weights, sigma)>
+ poisson: <loss poisson(y_true, y_est, weights, sigma)>
+```
+
+You can define your own losses by decorating a function with the `loss` decorator:
+
+```python
+>>> from foptima import loss
+>>> @loss
+... def mse(y_true, y_est, weights, sigma):
+...     return np.mean((y_true - y_est) ** 2)
+```
+Now the object `mse` can be used as a loss function:
+
+```python
+>>> linear.fit([1, 2, 3, 4], [2, 4, 6, 5], a=1.0, b=2.0, loss=mse)
+```
+
+Alternatively, you can also register the loss function with losses, so that they can
+be used like the built-in ones:
+
+```python
+>>> from foptima import loss
+>>> @loss(register=True)
+... def mse(y_true, y_est, weights, sigma):
+...     return np.mean((y_true - y_est) ** 2)
+>>> linear.fit([1, 2, 3, 4], [2, 4, 6, 5], a=1.0, b=2.0, loss="mse")
+```
+
+Additionally, it is possible to pass parameters to a loss function:
+
+```python
+>>> @loss
+... def student_t(y_true, y_est, weights, sigma, *, nu=1.0)
+...     diff = (y_true - y_est) / sigma
+...     return np.mean(weights * np.log(1 + diff ** 2 / nu) * ((nu + 1) / 2))
+>>> linear.fit([1, 2, 3, 4], [2, 4, 6, 5], a=1.0, b=2.0, loss=student_t(nu=4.0))
+```
+
+Note that you have to declare it as a keyword-only argument. Also, note that
+it is currently not possible to make such parameters optimizable.
 ## Caveats
 
-Being a wrapper around `scipy.optimize.minimize`, foptima creates quite a bit of
+Being a wrapper around `scipy.optimize.minimize`, foptima introduces quite a bit of
 overhead. If you're optimizing a function that is very fast to evaluate, you
 might be better off using `scipy.optimize.minimize` directly. Without any promises,
 foptima will run something like 10% slower than `scipy.optimize.minimize`. Whether this

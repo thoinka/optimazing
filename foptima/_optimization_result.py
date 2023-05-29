@@ -25,6 +25,7 @@ class OptimizationResult:
         self,
         function: Callable,
         values: Dict[str, float],
+        function_value: float,
         uncertainties: Optional[Dict[str, float]] = None,
     ):
         self._function = function
@@ -32,6 +33,7 @@ class OptimizationResult:
         argspecs = getfullargspec(function)
         self._arguments = argspecs.args
         self._parameters = argspecs.kwonlyargs
+        self._function_value = function_value
         if uncertainties is None:
             uncertainties = {}
         self._fit_values = {
