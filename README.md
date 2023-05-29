@@ -38,6 +38,17 @@ the result of the optimization. It can also be treated like a function, so you c
 perform `result([1, 2, 3, 4])` to get the fitted values for the given x-values.
 The two keyword arguments `a` and `b` in fit are the initial guesses for the
 optimization.
+There's also the option to use a pandas DataFrame as first argument to fit and a
+column name as the second argument, like so:
+
+```python
+>>> linear.fit(df, "target")
+```
+The column names for the arguments in df have to match up with the argument names
+in your function definition. If you can't guarantee that, then you'll have to rename
+your df or your function definition, depending on what breaks your heart less.
+
+### Freezing and Bounding Parameters
 
 There's two more methods for `OptimizableFunction`-objects: `freeze` and `bound`. They
 can be used to fix parameters to a certain value or to restrict them to a certain
@@ -72,7 +83,25 @@ or with bounds:
 ... result
  <OptimizationResult linear(x; m=1.0±0.0, b=0.0±0.0)>
 ```
-## `loss` Decorator
+
+### Weights and/or Uncertainties
+
+You have both the options to pass weights and uncertainties. Depending on the specifics
+of the loss you're using, they will be treated differently.
+
+```python
+linear.fit([1, 2, 3, 4], [2, 4, 6, 5], weights=[1, 0.75, 0.5, 0.5], sigma=[1.0, 2.0, 3.0, 4.0], a=1.0, b=2.0)
+```
+
+Whether combining both those inputs makes sense, of course depends on your use case.
+
+As before, there's also the option to use a pandas DataFrame instead:
+
+```python
+linear.fit(df, target="target_col", weights="weight_col", sigma="sigma_col", a=1.0, b=2.0)
+```
+
+### `loss` Decorator
 
 In the examples above, no loss was specified; this translates into the default loss,
 which is a chi squared loss (or, if used without weights, a mean squared error loss).
