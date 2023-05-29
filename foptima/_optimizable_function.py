@@ -1,9 +1,20 @@
 from typing import Callable, Optional, Dict, Any, Union, Tuple, Iterable
 from inspect import getfullargspec
 import numpy as np
+import pandas as pd
 from scipy.optimize import minimize
 from ._optimization_result import OptimizationResult
 from .losses import _losses
+
+
+FORBIDDEN_PARAM_NAMES = [
+    "loss",
+    "sigma",
+    "w",
+    "y",
+    "args",
+    "options",
+]
 
 
 def optimizable(function):
@@ -74,8 +85,10 @@ class OptimizableFunction:
         for p in params:
             if p.startswith("_"):
                 raise ValueError(
-                    f"Arguments cannot begin with underscore, but found {a}"
+                    f"Arguments cannot begin with underscore, but found {p}"
                 )
+            if p in FORBIDDEN_PARAM_NAMES:
+                raise ValueError(f"Used forbidden parameter name {p}")
 
     @property
     def num_args(self) -> int:
@@ -160,11 +173,11 @@ class OptimizableFunction:
 
     def fit(
         self,
-        args: Union[Iterable[Iterable[float]], Iterable[float]],
-        y: Iterable[float],
+        args_or_df: Union[Iterable[Iterable[float]], Iterable[float], pd.DataFrame],
+        target: Union[Iterable[float], str],
         loss: Union[str, Callable] = "chi_squared",
-        w: Optional[Iterable[float]] = None,
-        sigma: Optional[Iterable[float]] = None,
+        weights: Optional[Union[Iterable[float], str]] = None,
+        sigma: Optional[Union[Iterable[float], str]] = None,
         options: Dict[str, Any] = None,
         **kwargs,
     ) -> OptimizationResult:
@@ -172,15 +185,20 @@ class OptimizableFunction:
 
         Parameters
         ----------
-        args: iterable(float) or iterable(iterable(float))
+        args_or_df: iterable(float), iterable(iterable(float)) or pandas.DataFrame
             x-values for the fit. If multiple inputs exist, then this has to be some
             iterable over those.
-        y: iterable(float)
-            Target values.
-        w: iterable(float), optional
-            Weights.
-        sigma: iterable(float), optional
-            Uncertainties.
+            If DataFrame, columns must be correctly named according to the function
+            definition.
+        target: iterable(float) or str
+            Target values. If string, then the method also expects the first argument
+            to be a pandas.DataFrame.
+        weights: iterable(float) or str, optional
+            Weights. If string, then the method also expects the first argument to be a
+            pandas.DataFrame.
+        sigma: iterable(float) or str, optional
+            Uncertainties. If string, then the method also expects the first argument
+            to be a pandas.DataFrame.
         loss: string or callable
             Loss function. If string, has to be one of:
             * "mse"
@@ -204,15 +222,25 @@ class OptimizableFunction:
         ...
         ... linear.fit([0, 1, 2], [0.123, 0.938, 2.123], m=1, b=0)
         """
-        args = np.array(args)
+        if isinstance(args_or_df, pd.DataFrame):
+            for arg in self._arguments:
+                if arg not in args_or_df.columns:
+                    raise KeyError(
+                        f"Argument {arg} as specified in function was not found in "
+                        f"DataFrame, which has columns {args_or_df.columns}"
+                    )
+            args = args_or_df[self._arguments].values.swapaxes(0, -1)
+        else:
+            args = np.array(args_or_df)
         if args.ndim == 1:
             args = args[None]
 
-        w = w or np.ones(len(y))
-        sigma = sigma or np.ones(len(y))
+        target, weights, sigma = self._prepare_inputs(
+            args_or_df, target, weights, sigma
+        )
 
         if isinstance(loss, str):
-            loss = _losses[loss.lower()]
+            loss = self._resolve_loss(loss)
 
         free_parameters = [p for p in self._parameters if p not in self._freeze_dict]
         if len(free_parameters) == 0:
@@ -221,7 +249,7 @@ class OptimizableFunction:
         def _optimization_function(p):
             params = {key: value for key, value in zip(free_parameters, p)}
             params.update(self._freeze_dict)
-            return loss(y, self._function(*args, **params), w, sigma)
+            return loss(target, self._function(*args, **params), weights, sigma)
 
         opt_config = {
             "x0": [kwargs.get(p, 1.0) for p in free_parameters],
@@ -241,6 +269,46 @@ class OptimizableFunction:
             uncertainties = {p: None for p in free_parameters}
         uncertainties.update({p: None for p in self._freeze_dict})
         return OptimizationResult(self._function, values, result.fun, uncertainties)
+
+    def _resolve_loss(self, loss):
+        if loss.lower() not in _losses:
+            raise KeyError(
+                f"The specified loss '{loss}' was not registered. Registered losses "
+                f"are: {[l for l in _losses]}"
+            )
+        loss = _losses[loss.lower()]
+        return loss
+
+    def _prepare_inputs(
+        self,
+        args_or_df: Union[Iterable[Iterable[float]], Iterable[float], pd.DataFrame],
+        target: Union[Iterable[float], str],
+        weights: Optional[Union[Iterable[float], str]],
+        sigma: Optional[Union[Iterable[float], str]],
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        if isinstance(target, str):
+            if target not in args_or_df.columns:
+                raise KeyError(
+                    f"Target {target} not found in DataFrame that was passed."
+                )
+            target = args_or_df[target]
+
+        if isinstance(weights, str):
+            if weights not in args_or_df.columns:
+                raise KeyError(
+                    f"Weights {weights} not found in DataFrame that was passed."
+                )
+            weights = args_or_df[weights]
+        else:
+            weights = weights or np.ones(len(target))
+
+        if isinstance(sigma, str):
+            if sigma not in args_or_df.columns:
+                raise KeyError(f"Sigma {sigma} not found in DataFrame that was passed.")
+            sigma = args_or_df[sigma]
+        else:
+            sigma = sigma or np.ones(len(target))
+        return target, weights, sigma
 
     def __repr__(self):
         args = ", ".join(self._arguments)

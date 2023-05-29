@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from foptima import OptimizableFunction
 import pytest
 from scipy.optimize import minimize
@@ -21,6 +22,22 @@ def test_regular_fit(data, a0, b0):
     x, y = data
     optfun = OptimizableFunction(linear)
     result = optfun.fit(x, y, a=a0, b=b0)
+    exp = minimize(lambda p: np.mean((y - p[0] * x - p[1]) ** 2), x0=[a0, b0])
+
+    assert optfun.num_args == 1
+    assert optfun.num_params == 2
+    assert repr(optfun) == "<OptimizableFunction linear(x; a, b)>"
+
+    np.testing.assert_almost_equal(result.a.value, exp.x[0], decimal=7)
+    np.testing.assert_almost_equal(result.b.value, exp.x[1], decimal=7)
+
+
+@pytest.mark.parametrize("a0,b0", [[0.0, 0.0], [1.0, 1.0], [2.0, 2.0], [-1.0, -1.0]])
+def test_regular_fit_pandas(data, a0, b0):
+    x, y = data
+    df = pd.DataFrame({"x": x, "y": y})
+    optfun = OptimizableFunction(linear)
+    result = optfun.fit(df, "y", a=a0, b=b0)
     exp = minimize(lambda p: np.mean((y - p[0] * x - p[1]) ** 2), x0=[a0, b0])
 
     assert optfun.num_args == 1
