@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Optional, Callable, Dict
+from typing import Optional, Callable, Dict, Any
 from inspect import getfullargspec
 
 
@@ -26,6 +26,7 @@ class OptimizationResult:
         function: Callable,
         values: Dict[str, float],
         function_value: float,
+        result: Any,
         uncertainties: Optional[Dict[str, float]] = None,
     ):
         self._function = function
@@ -39,6 +40,7 @@ class OptimizationResult:
         self._fit_values = {
             p: ParameterValue(values[p], uncertainties.get(p, None)) for p in values
         }
+        self.result = result
 
     def __getattr__(self, param):
         return self._fit_values[param]

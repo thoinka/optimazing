@@ -174,7 +174,7 @@ class OptimizableFunction:
     def fit(
         self,
         args_or_df: Union[Iterable[Iterable[float]], Iterable[float], pd.DataFrame],
-        target: Union[Iterable[float], str],
+        target: Union[Iterable[float], str] = None,
         loss: Union[str, Callable] = "chi_squared",
         weights: Optional[Union[Iterable[float], str]] = None,
         sigma: Optional[Union[Iterable[float], str]] = None,
@@ -231,6 +231,10 @@ class OptimizableFunction:
                     )
             args = args_or_df[self._arguments].values.swapaxes(0, -1)
         else:
+            if target is None:
+                raise ValueError(
+                    "Unless first argument is DataFrame, target has to be set!"
+                )
             args = np.array(args_or_df)
         if args.ndim == 1:
             args = args[None]
@@ -268,7 +272,9 @@ class OptimizableFunction:
         else:
             uncertainties = {p: None for p in free_parameters}
         uncertainties.update({p: None for p in self._freeze_dict})
-        return OptimizationResult(self._function, values, result.fun, uncertainties)
+        return OptimizationResult(
+            self._function, values, result.fun, result, uncertainties
+        )
 
     def _resolve_loss(self, loss):
         if loss.lower() not in _losses:
@@ -286,6 +292,8 @@ class OptimizableFunction:
         weights: Optional[Union[Iterable[float], str]],
         sigma: Optional[Union[Iterable[float], str]],
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        if target is None:
+            target = self._function.__name__
         if isinstance(target, str):
             if target not in args_or_df.columns:
                 raise KeyError(

@@ -1,11 +1,11 @@
 from setuptools import setup
 
 setup(
-    name="foptima",
+    name="optimazing",
     version="0.1.0",
     description="Wrapper around scipy.optimize.minimize",
     author="Tobias Hoinka",
     author_email="thoinka@gmail.com",
     packages=["foptima"],
-    install_requires=["scipy", "numpy"],
+    install_requires=["scipy", "numpy", "pandas"],
 )
