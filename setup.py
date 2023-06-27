@@ -7,6 +7,7 @@ setup(
     author="Tobias Hoinka",
     author_email="thoinka@gmail.com",
     url="https://github.com/thoinka/optimazing",
+    download_url="https://github.com/thoinka/optimazing/archive/refs/tags/v0.0.1.tar.gz",
     keywords=["Optimization", "Scipy", "Minimization"],
     packages=["optimazing"],
     install_requires=["scipy", "numpy", "pandas"],
