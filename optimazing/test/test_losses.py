@@ -1,5 +1,5 @@
 import numpy as np
-from foptima import losses
+from optimazing import losses
 import pytest
 
 

@@ -1,4 +1,4 @@
-from foptima import optimizable, OptimizableFunction
+from optimazing import optimizable, OptimizableFunction
 import pytest
 
 

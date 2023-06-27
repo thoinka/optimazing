@@ -4,7 +4,8 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 from ._optimization_result import OptimizationResult
-from .losses import _losses
+from .losses import _losses, BaseLoss
+from ._parameters import Parameters
 
 
 FORBIDDEN_PARAM_NAMES = [
@@ -179,7 +180,8 @@ class OptimizableFunction:
         weights: Optional[Union[Iterable[float], str]] = None,
         sigma: Optional[Union[Iterable[float], str]] = None,
         options: Dict[str, Any] = None,
-        **kwargs,
+        verbose: bool = False,
+        **init_params,
     ) -> OptimizationResult:
         """Fits all free parameters of an optimizable function.
 
@@ -206,7 +208,9 @@ class OptimizableFunction:
             * ...
         options: dict
             Additional options. Will be propagated to scipy.optimize.minimize
-        kwargs: dict
+        verbose: bool
+            Whether to print additional information during the fit.
+        init_params: dict
             Initial values for fit.
 
         Returns
@@ -222,6 +226,122 @@ class OptimizableFunction:
         ...
         ... linear.fit([0, 1, 2], [0.123, 0.938, 2.123], m=1, b=0)
         """
+        args = self._check_inputs(args_or_df, target)
+        target, weights, sigma = self._prepare_inputs(
+            args_or_df, target, weights, sigma
+        )
+        loss = self._resolve_loss(loss)
+        parameters = self._collect_free_params(init_params, verbose=verbose)
+
+        self._check_init_params(parameters, init_params)
+
+        def _optimization_function(p):
+            if verbose:
+                print(f"Calling optimization function with parameters {p}")
+            params = parameters.unflatten(p)
+            params.update(self._freeze_dict)
+            if verbose:
+                print(f"Unpacked parameters to {params}")
+            output = loss(target, self._function(*args, **params), weights, sigma)
+            if verbose:
+                print(f"Loss: {output}")
+            return output
+
+        opt_config = self._configure_optimizer(options, init_params, parameters)
+
+        if verbose:
+            print("Running minimize with config:")
+            print(opt_config)
+
+        result = minimize(_optimization_function, **opt_config)
+
+        values, uncertainties = self._extract_results(parameters, result)
+        return OptimizationResult(
+            self._function, values, result.fun, result, uncertainties
+        )
+
+    def _check_init_params(self, parameters: Parameters, init_params: dict):
+        for p in init_params:
+            if p not in parameters.params:
+                raise ValueError(f"Parameter {p} unknown.")
+            if p in self._freeze_dict:
+                raise ValueError(f"Specified frozen parameter {p}.")
+
+    def _extract_results(
+        self, parameters: Parameters, result: Any
+    ) -> Tuple[dict, dict]:
+        values = parameters.unflatten(result.x)
+        values.update(self._freeze_dict)
+        if hasattr(result, "hess_inv") and hasattr(result.hess_inv, "diagonal"):
+            _unc = np.sqrt(result.hess_inv.diagonal())
+            uncertainties = parameters.unflatten(_unc)
+        else:
+            uncertainties = {p: None for p in parameters.params}
+        uncertainties.update({p: None for p in self._freeze_dict})
+        return values, uncertainties
+
+    def _configure_optimizer(
+        self, options: dict, init_params: dict, parameters: Parameters
+    ) -> dict:
+        init_params = {p: init_params.get(p, np.array(1.0)) for p in parameters.params}
+        init_params_flat = parameters.flatten(**init_params)
+        opt_config = {
+            "x0": init_params_flat,
+        }
+        opt_config.update(options or {})
+        if self.is_bounded:
+            lower = {
+                p: np.broadcast_to(
+                    self._bounds_dict.get(p, (None, None))[0], parameters.shapes[p]
+                )
+                for p in parameters.params
+            }
+            upper = {
+                p: np.broadcast_to(
+                    self._bounds_dict.get(p, (None, None))[1], parameters.shapes[p]
+                )
+                for p in parameters.params
+            }
+            flattened_lower = parameters.flatten(**lower)
+            flattened_upper = parameters.flatten(**upper)
+            opt_config.update(bounds=list(zip(flattened_lower, flattened_upper)))
+
+        return opt_config
+
+    def _collect_free_params(self, init_params: dict, verbose: bool):
+        free_parameters = [p for p in self._parameters if p not in self._freeze_dict]
+        if verbose:
+            print(f"Free parameters: {free_parameters}")
+
+        for p in free_parameters:
+            param = init_params.get(p, 1.0)
+            if not isinstance(param, (int, float, list, np.ndarray)):
+                raise ValueError(
+                    f"Every parameter needs to be number or array, but found {param} "
+                    f"with type {type(p)}"
+                )
+            if isinstance(param, list):
+                param = np.array(param)
+            if isinstance(param, np.ndarray):
+                if param.dtype not in ["float", "int"]:
+                    raise ValueError(
+                        "Every parameter needs to be number or array, but found "
+                        f"{param} with dtype {p.dtype}"
+                    )
+
+        if len(free_parameters) == 0:
+            raise ValueError("Attempted to fit, but no free parameters left!")
+
+        for p in free_parameters:
+            if p not in init_params:
+                raise ValueError(f"Missing initial values for parameter {p}")
+        shapes = {p: np.asarray(init_params[p]).shape for p in free_parameters}
+        parameters = Parameters(**shapes)
+        return parameters
+
+    def _check_inputs(
+        self, args_or_df: Union[list, pd.DataFrame], target: np.ndarray
+    ) -> np.ndarray:
         if isinstance(args_or_df, pd.DataFrame):
             for arg in self._arguments:
                 if arg not in args_or_df.columns:
@@ -238,45 +358,11 @@ class OptimizableFunction:
             args = np.array(args_or_df)
         if args.ndim == 1:
             args = args[None]
+        return args
 
-        target, weights, sigma = self._prepare_inputs(
-            args_or_df, target, weights, sigma
-        )
-
-        if isinstance(loss, str):
-            loss = self._resolve_loss(loss)
-
-        free_parameters = [p for p in self._parameters if p not in self._freeze_dict]
-        if len(free_parameters) == 0:
-            raise ValueError("Attempted to fit, but no free parameters left!")
-
-        def _optimization_function(p):
-            params = {key: value for key, value in zip(free_parameters, p)}
-            params.update(self._freeze_dict)
-            return loss(target, self._function(*args, **params), weights, sigma)
-
-        opt_config = {
-            "x0": [kwargs.get(p, 1.0) for p in free_parameters],
-        }
-        opt_config.update(options or {})
-        if self.is_bounded:
-            opt_config.update(
-                bounds=[self._bounds_dict.get(p, (None, None)) for p in free_parameters]
-            )
-        result = minimize(_optimization_function, **opt_config)
-        values = {p: v for p, v in zip(free_parameters, result.x)}
-        values.update(self._freeze_dict)
-        if hasattr(result, "hess_inv") and hasattr(result.hess_inv, "diagonal"):
-            _unc = np.sqrt(result.hess_inv.diagonal())
-            uncertainties = {p: v for p, v in zip(free_parameters, _unc)}
-        else:
-            uncertainties = {p: None for p in free_parameters}
-        uncertainties.update({p: None for p in self._freeze_dict})
-        return OptimizationResult(
-            self._function, values, result.fun, result, uncertainties
-        )
-
-    def _resolve_loss(self, loss):
+    def _resolve_loss(self, loss: Union[str, BaseLoss]) -> BaseLoss:
+        if isinstance(loss, BaseLoss):
+            return loss
         if loss.lower() not in _losses:
             raise KeyError(
                 f"The specified loss '{loss}' was not registered. Registered losses "

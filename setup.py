@@ -6,6 +6,6 @@ setup(
     description="Wrapper around scipy.optimize.minimize",
     author="Tobias Hoinka",
     author_email="thoinka@gmail.com",
-    packages=["foptima"],
+    packages=["optimazing"],
     install_requires=["scipy", "numpy", "pandas"],
 )

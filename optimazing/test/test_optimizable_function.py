@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from foptima import OptimizableFunction
+from optimazing import OptimizableFunction
 import pytest
 from scipy.optimize import minimize
 

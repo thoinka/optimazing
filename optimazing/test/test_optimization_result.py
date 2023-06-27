@@ -1,5 +1,5 @@
 import numpy as np
-from foptima import OptimizationResult
+from optimazing import OptimizationResult
 
 
 def linear(x, *, a, b):

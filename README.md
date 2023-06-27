@@ -22,7 +22,7 @@ make it easier to use for common optimization tasks. The main entry point are th
 Here's an example of how to use `optimizable`:
 
 ```python
->>> from foptima import optimizable
+>>> from optimazing import optimizable
 ...
 ... @optimizable
 ... def linear(x, *, a, b):
@@ -55,7 +55,7 @@ can be used to fix parameters to a certain value or to restrict them to a certai
 range. Here's an example:
 
 ```python
->>> from foptima import optimizable
+>>> from optimazing import optimizable
 ...
 ... @optimizable
 ... def linear(x, *, a, b):
@@ -71,7 +71,7 @@ range. Here's an example:
 or with bounds:
 
 ```python
->>> from foptima import optimizable
+>>> from optimazing import optimizable
 ...
 ... @optimizable
 ... def linear(x, *, a, b):
@@ -116,7 +116,7 @@ you can select with a simple string like above, which can be seen when you impor
 `foptima.losses`:
 
 ```python
->>> from foptima import losses
+>>> from optimazing import losses
 >>> losses
  chi_squared: <loss chi_squared(y_true, y_est, weights, sigma)>
  laplace: <loss laplace(y_true, y_est, weights, sigma)>
@@ -126,7 +126,7 @@ you can select with a simple string like above, which can be seen when you impor
 You can define your own losses by decorating a function with the `loss` decorator:
 
 ```python
->>> from foptima import loss
+>>> from optimazing import loss
 >>> @loss
 ... def mse(y_true, y_est, weights, sigma):
 ...     return np.mean((y_true - y_est) ** 2)
@@ -141,7 +141,7 @@ Alternatively, you can also register the loss function with losses, so that they
 be used like the built-in ones:
 
 ```python
->>> from foptima import loss
+>>> from optimazing import loss
 >>> @loss(register=True)
 ... def mse(y_true, y_est, weights, sigma):
 ...     return np.mean((y_true - y_est) ** 2)
